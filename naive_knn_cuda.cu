@@ -18,7 +18,7 @@ __global__ void sKNN(float *attr, int *val, int *pred, int com, int n_att, int n
 
 			float distance;
 			float diff;
-			for (int l = tid * n_att; l<tid * n_att + com; l++){
+			for (int l = tid  * com; l<tid * com + com; l++){
 					smallestDistance[l] = FLT_MAX; //first I initialize all the smallest to maxfloat
 			}
 			for(int j = 0; j < n_inst; j++){
@@ -34,11 +34,11 @@ __global__ void sKNN(float *attr, int *val, int *pred, int com, int n_att, int n
 				}
 				distance = sqrt(distance);
 
-				for (int n = tid * n_att ; n<tid * n_att + com; n++)
+				for (int n = tid * com ; n<tid * com + com; n++)
 				{
 					if(distance < smallestDistance[n]) // select the closest one
 					{
-						for (int t=tid * n_att + com-1; t>n; t--)
+						for (int t=tid * com + com-1; t>n; t--)
 						{
 							smallestDistance[t] = smallestDistance[t-1];
 							smallestDistanceClass[t] = smallestDistanceClass[t-1];
@@ -52,11 +52,11 @@ __global__ void sKNN(float *attr, int *val, int *pred, int com, int n_att, int n
 			}
 			int freq = 0;
 			int predict=0;
-			for ( int m = tid * n_att; m<tid * n_att + com; m++)
+			for ( int m = tid * com; m<tid * com + com; m++)
 			{
 				int tfreq = 1;
 				int tpredict=smallestDistanceClass[m];
-				for (int s = m+1 ; s< tid * n_att + com; s++)
+				for (int s = m+1 ; s< tid * com + com; s++)
 				{
 					if (tpredict==smallestDistanceClass[s])
 					{
