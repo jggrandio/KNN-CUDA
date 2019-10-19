@@ -109,6 +109,12 @@ int* KNN(ArffData* dataset, int com)
 	sKNN<<<griddim , threadperblock>>>(d_at, d_val, d_pred, com, n_att, n_inst, smallestDistance, smallestDistanceClass);
 	cudaMemcpy(h_pred, d_pred, n_inst* sizeof(int), cudaMemcpyDeviceToHost);
 
+	cudaFree(d_at);
+	cudaFree(d_val);
+	cudaFree(d_pred);
+	cudaFree(smallestDistance);
+	cudaFree(smallestDistanceClass);
+
 	return h_pred;
 }
 
@@ -170,5 +176,4 @@ int main(int argc, char *argv[])
 
     printf("The KNN classifier  for %lu instances required %llu ms CPU time, accuracy was %.4f\n", dataset->num_instances(), (long long unsigned int) diff, accuracy);
 }
-
 

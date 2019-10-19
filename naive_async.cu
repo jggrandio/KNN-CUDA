@@ -136,9 +136,14 @@ int* KNN(ArffData* dataset, int com)
 
 	cudaDeviceSynchronize();
 
-	//for (int i = 0; i<n_inst; i++){
-	//	printf("class %d: %d \n", i, h_pred[i]);
-	//}
+	for (int i = 0; i < n_streams; i++){
+		cudaStreamDestroy(streams[i]);
+	}
+	cudaFree(d_at);
+	cudaFree(d_val);
+	cudaFree(d_pred);
+	cudaFree(smallestDistance);
+	cudaFree(smallestDistanceClass);
 
 	return h_pred;
 }

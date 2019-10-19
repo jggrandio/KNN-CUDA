@@ -162,6 +162,15 @@ int* KNN(ArffData* dataset, int com)
 			}
 	}
 	cudaDeviceSynchronize();
+	for (int i = 0; i < n_streams; i++){
+		cudaStreamDestroy(streams[i]);
+	}
+	cudaFree(d_at);
+	cudaFree(d_dist);
+	cudaFree(d_val);
+	cudaFree(d_pred);
+	cudaFree(smallestDistance);
+	cudaFree(smallestDistanceClass);
 
 	return h_pred;
 }

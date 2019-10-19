@@ -133,6 +133,13 @@ int* KNN(ArffData* dataset, int com)
 
 	cudaMemcpy(h_pred, d_pred, n_inst* sizeof(int), cudaMemcpyDeviceToHost);
 
+	cudaFree(d_at);
+	cudaFree(d_dist);
+	cudaFree(d_val);
+	cudaFree(d_pred);
+	cudaFree(smallestDistance);
+	cudaFree(smallestDistanceClass);
+
 	return h_pred;
 }
 
