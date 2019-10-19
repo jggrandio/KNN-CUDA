@@ -108,7 +108,6 @@ int* KNN(ArffData* dataset, int com)
 	cudaMemcpy(d_at,h_at, n_att * n_inst* sizeof(float), cudaMemcpyHostToDevice);
 	sKNN<<<griddim , threadperblock>>>(d_at, d_val, d_pred, com, n_att, n_inst, smallestDistance, smallestDistanceClass);
 	cudaMemcpy(h_pred, d_pred, n_inst* sizeof(int), cudaMemcpyDeviceToHost);
-	cudaMemcpy(h_pred, d_pred, n_inst* sizeof(int), cudaMemcpyDeviceToHost);
 
 	return h_pred;
 }

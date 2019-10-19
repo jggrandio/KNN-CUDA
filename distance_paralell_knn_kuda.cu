@@ -11,7 +11,7 @@ using namespace std;
 __global__ void sKNN(float *attr, int *val, int n_att, int n_inst, float *distance, int com, float *smallestDistance){
 
 	//calculate tid
-
+	extern __shared__ float sh[];
 	int column = (blockDim.x * blockIdx.x) + threadIdx.x;
 	int row = (blockDim.y * blockIdx.y) + threadIdx.y;
 	int tid = (blockDim.x*gridDim.x*row)+column;
@@ -19,32 +19,45 @@ __global__ void sKNN(float *attr, int *val, int n_att, int n_inst, float *distan
 	if (tid < n_inst * com){
 		smallestDistance[tid] = FLT_MAX;
 	}
-	if (column < n_inst && row < n_inst){
 
+		if (column < n_inst * n_att && row < n_inst){
+			if(threadIdx.x == 0){
+				distance[row * n_inst + blockIdx.x] = 0; //Distance to 0 so the first one is a min distance
+			}
 
 			float diff;
 
-			distance[row * n_inst + column] = 0; //Distance to 0 so the first one is a min distance
-			for(int k = 0; k < n_att; k++) // compute the distance between the two instances
-			{
-				//mirar para cargar en shared el val j y asi no tener problemas de stride
-				diff = attr[row* n_att +k] - attr[column*n_att+k];
-				distance[row * n_inst + column] += diff * diff;
+			diff = (attr[row* n_att + threadIdx.x] - attr[column])*(attr[row* n_att + threadIdx.x] - attr[column]);
+			sh[threadIdx.y*n_att+threadIdx.x]=diff;
+			__syncthreads();
+
+			if(threadIdx.x == 0){
+
+				for (int k = threadIdx.y*n_att; k < (threadIdx.y*n_att) + n_att; k++){
+
+
+					distance[row * n_inst + blockIdx.x] += sh[k];
+
+				}
+
+				distance[row * n_inst + blockIdx.x] =  sqrt(distance[row * n_inst + blockIdx.x]); //Distance to 0 so the first one is a min distance
+
+
+				if (row == blockIdx.x){ // when it is the same point
+					distance[row * n_inst + blockIdx.x] = FLT_MAX;
+				}
 			}
-			distance[row * n_inst + column] = sqrt(distance[row * n_inst + column]);
-			if (row == column){ // when it is the same point
-				distance[row * n_inst + column] = FLT_MAX;
-			}
+
 			//for(int a = 0; a<n_inst; a++){
 			//	for(int b = 0; b<n_inst; b++){
 			//		if (row == a && column == b){
-			//			printf("element (%d, %d): %f \n",a, b, distance[row * n_inst + column]);
+			//			printf("element (%d, %d): %f \n",a, b, distance[row * n_inst + column/n_att]);
 			//		}
 			//	}
 			//}
-	}
+		}
 }
-			//Acabar aqui el kernel, hacer el sort con thrust, y luego otro kernel
+
 __global__ void pred(int *pred, int com, int n_inst, float *distance, float *smallestDistance, int* smallestDistanceClass, int *val){
 	int tid = (blockDim.x * blockIdx.x) + threadIdx.x;
 	if (tid < n_inst){
@@ -90,13 +103,16 @@ __global__ void pred(int *pred, int com, int n_inst, float *distance, float *sma
 
 int* KNN(ArffData* dataset, int com)
 {
-	int threadperblockdim = 16;
-	int griddim = (dataset->num_instances() + threadperblockdim - 1) / threadperblockdim;
-
-	dim3 blocksize(threadperblockdim,threadperblockdim);
-	dim3 gridsize(griddim,griddim);
 	int n_att = dataset->num_attributes() - 1;
 	int n_inst = dataset->num_instances();
+
+	int threadperblockdim = n_att;
+	int griddimx = ((n_att*n_inst) + threadperblockdim - 1) / threadperblockdim;
+	int griddimy = (n_inst + threadperblockdim - 1) / threadperblockdim;
+
+	dim3 blocksize(threadperblockdim,threadperblockdim);
+	dim3 gridsize(griddimx,griddimy);
+
 
 	int *h_pred= (int*)malloc(n_inst * sizeof(int));
 	int *h_val= (int*)malloc(n_inst * sizeof(int));
@@ -124,14 +140,15 @@ int* KNN(ArffData* dataset, int com)
 	}
 	cudaMemcpy(d_val,h_val, n_inst* sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(d_at,h_at, n_att * n_inst* sizeof(float), cudaMemcpyHostToDevice);
-	sKNN<<<gridsize , blocksize>>>(d_at, d_val, n_att, n_inst, d_dist, com, smallestDistance);
+	sKNN<<<gridsize , blocksize,n_att*n_att*sizeof(float)>>>(d_at, d_val, n_att, n_inst, d_dist, com, smallestDistance);
 
 
 	int threadperblock = 256;
 	int blocks = (dataset->num_instances() + threadperblock - 1) / threadperblock;
-	pred<<<blocks ,threadperblock>>>(d_pred, com, n_inst, d_dist, smallestDistance, smallestDistanceClass, d_val);
+	pred<<<blocks , threadperblock>>>(d_pred, com, n_inst, d_dist, smallestDistance, smallestDistanceClass, d_val);
 
 	cudaMemcpy(h_pred, d_pred, n_inst* sizeof(int), cudaMemcpyDeviceToHost);
+
 
 	return h_pred;
 }
